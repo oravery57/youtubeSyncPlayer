@@ -1,5 +1,23 @@
-scripts {
-  start node server.js
-},
-main server.js
-
+{
+      "name": "YouTubeSyncPlayer",
+      "version": "1.0.0",
+      "description": "YouTubeSyncPlayer",
+      "main": "server.js",
+      "scripts": {
+           "start": "node server.js",
+           "test": "echo \"Error: no test specified\" && exit 1"
+       },
+      "keywords": [
+          "node",
+          "angular"
+      ],
+      "dependencies" : {
+          "express"    : "~4.7.2",
+          "mongoose"   : "~3.6.2",
+          "morgan"     : "~1.2.2",
+          "body-parser": "~1.5.2",
+          "method-override": "~2.1.2"
+      },
+      "author": "yuki.ochi.oravery@gmail.com",
+      "license": "MIT"
+}
