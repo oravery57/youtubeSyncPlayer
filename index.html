@@ -136,7 +136,7 @@
     ioSocket.on("playing", function (data) {
         console.log("playing");
         resuming = true;
-       // player.seekTo(data.time);
+       player.seekTo(data.time);
         player.playVideo();
     });
 
