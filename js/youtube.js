@@ -18,15 +18,46 @@
       function onPlayerReady(event) {
         playerReady = true;
         event.target.playVideo();
+          setInterval(function(){
+              if (player.getPlayerState() == YT.PlayerState.PLAYING) {
+                  ioSocket.emit("sync", {time: player.getCurrentTime()});
+              }
+          }, 3000);
       }
 
       //    The API calls this function when the player's state changes.
       //    The function indicates that when playing a video (state=1),
       var done = false;
+      var lastActionTime = 0;
       function onPlayerStateChange(event) {
-        console.log(event.log);
+          console.log(event.data);
+          if (event.data == YT.PlayerState.PLAYING) {
+              console.log(player.getCurrentTime());
+              if (!resuming) {
+                  ioSocket.emit("playing", {time: player.getCurrentTime()});
+              } else {
+                  resuming = false;
+              }
+          }
+
+          if (event.data == YT.PlayerState.PAUSED) {
+              if (!posing) {
+                  ioSocket.emit("paused", {time: player.getCurrentTime()});
+              } else {
+                  posing =  false;
+              }
+          }
+
+          if (event.data == YT.PlayerState.ENDED) {
+              ioSocket.emit("ended", {time: player.getCurrentTime()});
+          }
+
+          if (event.data == YT.PlayerState.CUED) {
+              ioSocket.emit("cued", {time: player.getCurrentTime()});
+          }
+
       }
-      
+
       
       function stopVideo() {
         player.stopVideo();

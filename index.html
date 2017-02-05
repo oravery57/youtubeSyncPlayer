@@ -81,6 +81,8 @@
 
     $("#mainPage").hide();
 
+    var resuming = false;
+    var posing = false;
     var ioSocket = io.connect("/"); // チャットサーバーに接続
 
     // サーバーからのデータ受け取り処理
@@ -97,8 +99,8 @@
 
     ioSocket.on("updateMember", function (data) {
         $("#memberView").empty();
-        data.forEach(function (name) {
-            $("#memberView").append('<Div>' + name + '</Div>');
+        data.forEach(function (item) {
+            $("#memberView").append('<Div>' + item.name + '</Div>');
         });
     });
 
@@ -107,12 +109,16 @@
     });
 
     ioSocket.on("play", function (data) {
-        console.log(data.id);
+        resuming = true;
         if (!player) {
             player = new YT.Player('player', {
                 height: '360',
                 width: '640',
                 videoId: data.id,
+                playerVars: {
+                    rel: 0, // 再生終了後に関連動画を表示するかどうか設定
+                    autoplay: 0 // 自動再生するかどうか設定
+                },
                 events: {
                     'onReady': onPlayerReady,
                     'onStateChange': onPlayerStateChange
@@ -124,6 +130,26 @@
                 0,
                 "large"
             );
+        }
+    });
+
+    ioSocket.on("playing", function (data) {
+        console.log("playing");
+        resuming = true;
+       // player.seekTo(data.time);
+        player.playVideo();
+    });
+
+    ioSocket.on("paused", function (data) {
+        console.log("paused");
+        posing = true;
+        player.pauseVideo();
+    });
+
+    ioSocket.on("sync", function (data) {
+        console.log("sync > " + data.time);
+        if (player.getPlayerState() == YT.PlayerState.PLAYING) {
+            player.seekTo(player.getCurrentTime() + data.offset);
         }
     });
 
@@ -144,7 +170,7 @@
 
     $("#submitMessage").click(function () {
         ioSocket.emit("message", {name: $("#inputNameForm").val(), message: $("#inputMessageForm").val()});
-        $("#inputNameForm").val("");
+        $("#inputMessageForm").val("");
     });
     $('#submitMessage').bind("keydown", function (e) {
         if (e.which == 13) {

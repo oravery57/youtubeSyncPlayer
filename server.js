@@ -28,6 +28,8 @@ server.listen(server_port, server_ip_address, function () {
 var io = socketio.listen(server);
 
 var store = [];
+var state = 0;
+var baseTime = null;
 
 // 接続確立後の通信処理部分を定義
 var socket = io.sockets.on( 'connection', function( client ) {
@@ -35,17 +37,20 @@ var socket = io.sockets.on( 'connection', function( client ) {
     client.emit('connected');
 
     client.on('disconnect', function() {
-        var name = store[client.id].name;
-        var room = store[client.id].room;
-        delete store [client.id];
-        io.to(room).emit('message', {system: true, name : 'System', message: '[' + name + '] has leaved!', time: getTime()});
-        io.to(room).emit('updateMember', getMembers(room));
+        if (store[client.id]) {
+            var name = store[client.id].name;
+            var room = store[client.id].room;
+            delete store [client.id];
+            io.to(room).emit('message', {system: true, name : 'System', message: '[' + name + '] has leaved!', time: getTime()});
+            io.to(room).emit('updateMember', getMembers(room));
+        }
     });
 
     client.on('join', function(data) {
         usrobj = {
             'room': data.room,
-            'name': data.name
+            'name': data.name,
+            'state': "0"
         };
         store[client.id] = usrobj;
         client.join(data.room);
@@ -58,8 +63,48 @@ var socket = io.sockets.on( 'connection', function( client ) {
     });
 
     client.on( 'play', function( data ) {
-        io.to(store[client.id].room).emit('message', {system: true, name : 'System', message: '[' + data.name + '] starts new video [' + data.id + ']!', time: getTime()});
+        io.to(store[client.id].room).emit('message', {system: true, name : 'System', message: '[' + data.name + '] has started new video [' + data.id + ']!', time: getTime()});
         io.to(store[client.id].room).emit( 'play', { id : data.id } );
+        setState(getMembers(store[client.id].room), "0");
+    });
+
+    client.on( 'playing', function( data ) {
+        var member = store[client.id];
+        io.to(member.room).emit('message', {system: true, name : 'System', message: '[' + member.name + '] has resumed video.', time: getTime()});
+        client.broadcast.to(member.room).emit( 'playing', { time : data.time } );
+        baseTime = null;
+    });
+
+    client.on( 'sync', function( data ) {
+        var member = store[client.id];
+
+        if (baseTime) {
+            var curTime = new Date().getTime();
+            var sTimeOffset = curTime - parseInt(baseTime.stime);
+            var timeOffset = (data.time - baseTime.time) * 1000; // ミリ秒に変換
+            var offset = timeOffset - sTimeOffset;
+            console.log("offset > " + offset);
+            if (offset < 0) {
+                baseTime = {
+                    'stime': curTime,
+                    'time': data.time
+                };
+            } else if (offset > 3000) {
+                io.to(client.id).emit("sync", {offset: -offset / 1000});
+            }
+        } else {
+            baseTime = {
+                'stime': new Date().getTime(),
+                'time': data.time
+            };
+        }
+    });
+
+    client.on( 'paused', function( data ) {
+        var member = store[client.id];
+        io.to(member.room).emit('message', {system: true, name : 'System', message: '[' + member.name + '] has paused video.', time: getTime()});
+        client.broadcast.to(member.room).emit( 'paused', { time : data.time } );
+        baseTime = null;
     });
 
     client.on( 'message', function( data ) {
@@ -77,7 +122,13 @@ function getMembers(room)  {
     // TODO
     var members = [];
     Object.keys(store).forEach(function(key) {
-        if (store[key].room === room) members.push(store[key].name);
+        if (store[key].room === room) members.push(store[key]);
     });
     return members;
+}
+
+function setState (members, state) {
+    members.forEach(function(member) {
+        member.state = state;
+    });
 }
